@@ -1,0 +1,51 @@
+test_cancellation_does_not_query (test_core.BackendTests.test_cancellation_does_not_query) ... ok
+test_compatibility_settings (test_core.BackendTests.test_compatibility_settings) ... ok
+test_csv_provenance_timestamp_missing_value_and_zero (test_core.BackendTests.test_csv_provenance_timestamp_missing_value_and_zero) ... ok
+test_demo_values_are_explicitly_marked (test_core.BackendTests.test_demo_values_are_explicitly_marked) ... ok
+test_dtc_codes_preserved (test_core.BackendTests.test_dtc_codes_preserved) ... ok
+test_ecu_without_dashboard_sensors_is_still_verified (test_core.BackendTests.test_ecu_without_dashboard_sensors_is_still_verified) ... ok
+test_empty_dtcs_differ_from_missing_response (test_core.BackendTests.test_empty_dtcs_differ_from_missing_response) ... ok
+test_invalid_and_null_sensor_values_are_not_zero (test_core.BackendTests.test_invalid_and_null_sensor_values_are_not_zero) ... ok
+test_partial_connection_is_not_success (test_core.BackendTests.test_partial_connection_is_not_success) ... ok
+test_requires_explicit_port (test_core.BackendTests.test_requires_explicit_port) ... ok
+test_worker_demo_lifecycle_and_dtc_request (test_core.BackendTests.test_worker_demo_lifecycle_and_dtc_request) ... ok
+test_worker_detects_silent_loss (test_core.BackendTests.test_worker_detects_silent_loss) ... ok
+test_worker_reports_connect_failure_and_closes (test_core.BackendTests.test_worker_reports_connect_failure_and_closes) ... ok
+test_zero_rpm_is_valid_and_unsupported_not_queried (test_core.BackendTests.test_zero_rpm_is_valid_and_unsupported_not_queried) ... ok
+test_demo_connect_dtcs_disconnect (test_gui.GUITests.test_demo_connect_dtcs_disconnect) ... ok
+test_no_live_verification_after_disconnect (test_gui.GUITests.test_no_live_verification_after_disconnect) ... ok
+test_protocol_selector_and_demo_report (test_gui.GUITests.test_protocol_selector_and_demo_report) ... ok
+test_can11_pid_discovery (test_library_contract.LibraryContractTests.test_can11_pid_discovery) ... skipped 'obd no instalado: no se ha ejecutado el parser real de la dependencia'
+test_can29_pid_discovery (test_library_contract.LibraryContractTests.test_can29_pid_discovery) ... skipped 'obd no instalado: no se ha ejecutado el parser real de la dependencia'
+test_no_data_not_ecu_evidence (test_library_contract.LibraryContractTests.test_no_data_not_ecu_evidence) ... skipped 'obd no instalado: no se ha ejecutado el parser real de la dependencia'
+test_at_text_and_no_messages_are_not_evidence (test_protocols.ProtocolTests.test_at_text_and_no_messages_are_not_evidence) ... ok
+test_auto_passes_none_not_zero (test_protocols.ProtocolTests.test_auto_passes_none_not_zero) ... ok
+test_automatic_normalization (test_protocols.ProtocolTests.test_automatic_normalization) ... ok
+test_bad_ecu_never_emits_connected (test_protocols.ProtocolTests.test_bad_ecu_never_emits_connected) ... ok
+test_bit_order_and_bitmap_union (test_protocols.ProtocolTests.test_bit_order_and_bitmap_union) ... ok
+test_catalogue_complete_and_unique (test_protocols.ProtocolTests.test_catalogue_complete_and_unique) ... ok
+test_decoded_value_without_bytes_rejected (test_protocols.ProtocolTests.test_decoded_value_without_bytes_rejected) ... ok
+test_echo_wrong_mode_pid_and_lengths_rejected (test_protocols.ProtocolTests.test_echo_wrong_mode_pid_and_lengths_rejected) ... ok
+test_forced_query_only_for_pid_discovery (test_protocols.ProtocolTests.test_forced_query_only_for_pid_discovery) ... ok
+test_heartbeat_uses_fresh_data_not_static_status (test_protocols.ProtocolTests.test_heartbeat_uses_fresh_data_not_static_status) ... ok
+test_invalid_protocols_rejected_before_connection (test_protocols.ProtocolTests.test_invalid_protocols_rejected_before_connection) ... ok
+test_malformed_payload_type_is_rejected (test_protocols.ProtocolTests.test_malformed_payload_type_is_rejected) ... ok
+test_manual_ids_passed_to_library (test_protocols.ProtocolTests.test_manual_ids_passed_to_library) ... ok
+test_null_response_rejected_even_with_valid_bytes (test_protocols.ProtocolTests.test_null_response_rejected_even_with_valid_bytes) ... ok
+test_requested_and_effective_mismatch_rejected (test_protocols.ProtocolTests.test_requested_and_effective_mismatch_rejected) ... ok
+test_runtime_accepts_actual_venv (test_protocols.ProtocolTests.test_runtime_accepts_actual_venv) ... ok
+test_runtime_rejects_global_python (test_protocols.ProtocolTests.test_runtime_rejects_global_python) ... ok
+test_sensor_value_must_match_first_message (test_protocols.ProtocolTests.test_sensor_value_must_match_first_message) ... ok
+test_static_car_connected_is_insufficient (test_protocols.ProtocolTests.test_static_car_connected_is_insufficient) ... ok
+test_truncated_dtc_reply_not_reported_as_zero_codes (test_protocols.ProtocolTests.test_truncated_dtc_reply_not_reported_as_zero_codes) ... ok
+test_unimplemented_effective_protocol_rejected (test_protocols.ProtocolTests.test_unimplemented_effective_protocol_rejected) ... ok
+test_voltage_bypass_does_not_bypass_ecu_validation (test_protocols.ProtocolTests.test_voltage_bypass_does_not_bypass_ecu_validation) ... ok
+test_write_commands_blocked (test_protocols.ProtocolTests.test_write_commands_blocked) ... ok
+test_wrong_dtc_service_not_a_clean_bill (test_protocols.ProtocolTests.test_wrong_dtc_service_not_a_clean_bill) ... ok
+test_wrong_sensor_response_not_displayed (test_protocols.ProtocolTests.test_wrong_sensor_response_not_displayed) ... ok
+test_zero_bitmap_is_still_a_response (test_protocols.ProtocolTests.test_zero_bitmap_is_still_a_response) ... ok
+
+----------------------------------------------------------------------
+Ran 46 tests in 1.326s
+
+OK (skipped=3)

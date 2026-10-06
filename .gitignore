@@ -1,0 +1,17 @@
+# Local virtual environments and Python caches
+.venv/
+.testvenv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+# Local logs and vehicle data
+*.log
+*.csv
+diagnostico_obd.json
+*_verificacion.json
+obd_conexion.txt
+captures/
+# Build artifacts
+build/
+dist/
+*.egg-info/
