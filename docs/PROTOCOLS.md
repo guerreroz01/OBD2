@@ -66,6 +66,28 @@ identificacion de motor usados por python-OBD limitan que modulos aparecen.
 No confundir protocolo KWP2000 de OBD generico con funciones de fabricante,
 ni CAN OBD con disponer de todos los servicios UDS.
 
+## Borrado de fallos: modo 04 (unica escritura)
+
+El modo 04 (`CLEAR_DTC`) es la unica operacion de escritura de la app. Requiere
+confirmacion explicita del usuario y nunca se ejecuta sola. Elimina los DTC
+almacenados y pendientes, la foto de datos (freeze frame) y reinicia los monitores
+de disposicion, que quedaran "no listos" hasta completar de nuevo los ciclos de
+conduccion. Por eso no se usa para ocultar averias ni antes de una inspeccion.
+
+`python-OBD==0.7.3` decodifica `CLEAR_DTC` con un decodificador `drop`: su
+`OBDResponse.value` es siempre `None` e `is_null()` siempre `True`. No se puede usar
+`valid_payloads()` como evidencia de borrado. La evidencia se lee directamente de
+`response.messages[*].data`:
+
+- `44`: la ECU acepta el borrado (positivo). Es la unica confirmacion valida.
+- `7F 04 <NRC>`: la ECU rechaza el borrado (negativo).
+- Cualquier otro caso (sin mensajes, sin `44`): no confirmado. El `OK` del ELM327
+  no prueba nada.
+
+El modo 04 no es una lectura: hay trafico de escritura en el bus. Sigue sin haber
+consola AT/UDS/raw ni otros servicios de escritura (modo 08, codificacion,
+actuadores, acceso de seguridad).
+
 ## Errores que no son "ECU conectada"
 
 `NO DATA`, `UNABLE TO CONNECT`, `CAN ERROR`, errores de inicializacion,

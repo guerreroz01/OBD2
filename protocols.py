@@ -72,3 +72,48 @@ def pid_evidence(response) -> tuple[tuple[str, ...], tuple[str, ...]]:
         advertised.update(f'{pid:02X}' for pid in range(1, 33)
                           if mask & (1 << (32 - pid)))
     return tuple(data.hex(' ').upper() for data in payloads), tuple(sorted(advertised))
+
+
+@dataclass(frozen=True)
+class ClearVerdict:
+    confirmed: bool
+    status: str
+    detail: str
+
+
+def clear_dtc_evidence(response) -> ClearVerdict:
+    """Mode 04 evidence. The ELM 'OK' is not proof of a clear.
+
+    python-OBD decodes CLEAR_DTC with a drop decoder, so OBDResponse.value is
+    always None and OBDResponse.is_null() is always True for this command.
+    Evidence must be read straight from raw message payloads: positive is 44;
+    negative is 7F 04 <NRC>.
+    """
+    if response is None:
+        return ClearVerdict(False, 'Sin respuesta',
+                            'No hubo respuesta del adaptador; no se puede confirmar el borrado.')
+    positives, negatives = [], []
+    for message in getattr(response, 'messages', None) or ():
+        data = getattr(message, 'data', None)
+        if not isinstance(data, (bytes, bytearray, list, tuple)):
+            continue
+        try:
+            payload = bytes(data)
+        except (ValueError, TypeError, OverflowError):
+            continue
+        if payload.startswith(b'\x44'):
+            positives.append(payload)
+        elif payload.startswith(b'\x7f'):
+            negatives.append(payload)
+    if negatives:
+        for data in negatives:
+            if len(data) >= 3 and data[1] == 0x04:
+                return ClearVerdict(False, 'Rechazado por la ECU (7F 04)',
+                                    f'La ECU respondio negativo: NRC 0x{data[2]:02X}. No se borro nada.')
+        return ClearVerdict(False, 'Respuesta negativa (7F)',
+                            'La ECU devolvio una respuesta negativa; no se confirma el borrado.')
+    if positives:
+        return ClearVerdict(True, 'Confirmado por la ECU (44)',
+                            f'La ECU acepto el borrado (modo 04). Respuestas validas 44: {len(positives)}.')
+    return ClearVerdict(False, 'No confirmado (sin 44)',
+                        'No hubo payload OBD 44. El OK del ELM327 no prueba el borrado.')

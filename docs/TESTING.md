@@ -29,6 +29,20 @@ otra carpeta, mensajes de error de instalacion, red no disponible, importacion
 Tkinter, intento de arrancar fuera de un entorno virtual y cierre de ventana.
 La revision estatica de un .bat bajo Linux no es una prueba de Windows.
 
+## Borrado de fallos (modo 04)
+
+Casos cubiertos sin hardware por las pruebas unitarias y de protocolo:
+
+- Borrado confirmado: un payload OBD `44` es la unica evidencia positiva.
+- Borrado rechazado: `7F 04 <NRC>` se informa como negativo, sin declarar borrado.
+- Borrado sin evidencia `44` (respuesta nula o vacia): NO confirmado; el `OK` del
+  ELM327 no cuenta.
+- Cancelacion cooperativa: con el evento de parada activo no se emite la consulta.
+- Demo: el borrado se marca SIMULADO y hace desaparecer los codigos ficticios.
+- Worker: la accion `clear` emite primero la relectura `dtcs` y luego `cleared`.
+
+Ninguna de estas pruebas abre un COM ni contacta con una ECU real.
+
 ## Con hardware (solo autorizado y estacionado)
 
 Anota marca/modelo/ano/motor y region del coche, Windows, puerto COM y protocolo.

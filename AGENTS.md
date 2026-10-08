@@ -48,7 +48,7 @@ No introduzcas Docker, WSL, Linux obligatorio, un servidor web o una nube.
 | Archivo | Responsabilidad |
 |---|---|
 | `app.py` | GUI Tkinter, seleccion COM/baudios/protocolo, vistas y exportaciones. |
-| `core.py` | RealBackend, DemoBackend, Worker, lista de consultas permitidas y CSV. |
+| `core.py` | RealBackend, DemoBackend, Worker, lista de consultas permitidas (incluye el borrado confirmado modo 04) y CSV. |
 | `protocols.py` | IDs 1-9/Auto y validacion pura de evidencia OBD. No abre puertos. |
 | `runtime.py` | Verificacion de ejecucion dentro de un entorno virtual. |
 | `diagnostico.py` | CLI de entorno o verificacion ECU con puerto explicito. |
@@ -98,13 +98,23 @@ No cambies a Bleak/GATT para este Bluetooth clasico por simple preferencia.
 
 ## Seguridad y alcance del diagnostico
 
-- La aplicacion consulta, pero no cambia configuracion de la ECU: no borrar
-  DTC/modo 04, no controles modo 08, codificacion, actuadores, reprogramacion,
-  acceso de seguridad, bypass de pasarelas, ajustes de emisiones o antirrobo.
+- La aplicacion puede LEER y, con confirmacion explicita del usuario, BORRAR los
+  codigos de fallo de la centralita mediante el modo 04 (servicio estandar OBD-II).
+  El borrado se usa tras reparar los fallos; no para ocultar averias ni antes de
+  una inspeccion de emisiones.
+- Siguen PROHIBIDOS: modo 08 (controles/actuadores), codificacion, reprogramacion,
+  acceso de seguridad, bypass de pasarelas, ajustes de emisiones o antirrobo y
+  cualquier consola AT/UDS/raw. Cada uno requiere su propia solicitud y revision
+  de alcance y seguridad.
+- El modo 04 NO es una lectura: elimina DTC almacenados y pendientes, borra el
+  freeze frame y reinicia los monitores de disposicion ("no listos"). El `OK` del
+  ELM327 NO prueba el borrado: solo una respuesta OBD `44` positiva lo confirma, y
+  `7F 04` indica rechazo. Nunca se informa "borrado" sin evidencia `44`.
 - "Solo lectura" permite solicitudes diagnosticas e inicializacion del ELM;
   no significa escucha pasiva ni ausencia de trafico en el bus.
-- Mantener lista cerrada `ALLOWED_QUERIES`. No exponer una consola AT/UDS/raw
-  sin una solicitud nueva y una revision de alcance y seguridad.
+- Mantener lista cerrada `ALLOWED_QUERIES`, que ahora incluye `CLEAR_DTC`. No
+  exponer una consola AT/UDS/raw sin una solicitud nueva y una revision de
+  alcance y seguridad.
 - Ninguna prueba automatizada debe abrir un COM, buscar dispositivos emitiendo
   comandos, emparejar Bluetooth ni contactar con una ECU real.
 - Para una prueba fisica pide autorizacion, puerto exacto y confirma coche
@@ -130,8 +140,10 @@ posible. Revisa la interfaz visualmente: los mocks no detectan solapamientos.
 
 Prueba expresamente: serial/ELM sin ECU; CAR_CONNECTED sin 41 00; protocolo
 incorrecto; cada ID manual; mascara de PIDs; eco/truncamiento; cero RPM;
-respuesta perdida con tension aun presente; servicios DTC incorrectos; parada
-del worker; reabrir tras desconectar; demo totalmente etiquetada SIMULADO.
+respuesta perdida con tension aun presente; servicios DTC incorrectos; borrado
+confirmado (`44`), borrado rechazado (`7F 04`) y borrado sin evidencia `44` (no
+confirmado); parada del worker; reabrir tras desconectar; demo totalmente
+etiquetada SIMULADO.
 
 Las pruebas de `test_library_contract.py` se omiten si no esta instalado `obd`.
 NO cuentes omitidas como superadas ni declares integracion validada cuando

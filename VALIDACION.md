@@ -42,3 +42,29 @@ Probar protocolos diferentes requiere vehiculos/simuladores apropiados:
 una prueba con CAN no certifica J1850 ni K-line.
 
 No se certifica lectura de ABS/airbag, funciones de marca ni todas las ECUs.
+
+## Adenda 2026-10-08: borrado confirmado modo 04 (solo pruebas sin hardware)
+
+Cambio: se anade el borrado de DTC por OBD modo 04, confirmado por el usuario y
+aceptado solo con evidencia OBD `44`. Documentado en AGENTS.md, README.md,
+docs/PROTOCOLS.md y docs/TESTING.md.
+
+Entorno: Windows (win32), Python 3.12.10 dentro del `.venv` del proyecto.
+Hardware: NINGUNO. No se ha abierto ningun puerto COM ni contactado con una ECU.
+La dependencia `obd==0.7.3` SI esta instalada, por lo que los tres contratos con
+el parser real se han ejecutado (no omitidos).
+
+Comandos ejecutados desde la raiz, con `.venv\Scripts\python.exe`:
+
+- `-m compileall -q app.py core.py protocols.py runtime.py diagnostico.py tests` -> correcto.
+- `-m unittest discover -s tests -v` -> **53 pruebas, 0 omitidas, 0 fallos** (OK).
+  Los 3 contratos de `test_library_contract.py` se ejecutaron y pasaron. La GUI
+  demo se ejecuto en Windows (3 pruebas) y paso.
+- `-m pip check` -> "No broken requirements found."
+
+Cobertura nueva de modo 04: borrado confirmado (`44`), rechazado (`7F 04`) y sin
+evidencia `44` (no confirmado); cancelacion sin consulta; demo marcada SIMULADO;
+orden de eventos `dtcs` y `cleared` del worker. Ninguna prueba abre un COM.
+
+Limite: esto NO valida el borrado en un coche real ni en el IM77R; solo la logica
+y el contrato con python-OBD 0.7.3.

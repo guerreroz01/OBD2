@@ -77,7 +77,8 @@ pero eso no desactiva la verificacion de la ECU.
   ISO 14230-4 KWP2000 (5 baudios/rapido), ISO 15765-4 CAN 11/29 bits y 250/500 kbit/s.
 - RPM, velocidad, temperaturas, carga, mariposa, presion de admision, si la ECU
   anuncia esos sensores. La tension se identifica como lectura del adaptador.
-- Consulta de DTC almacenados (03) y pendientes (07), sin borrado.
+- Consulta de DTC almacenados (03) y pendientes (07), y borrado confirmado por el
+  usuario mediante el modo 04, aceptado solo con evidencia OBD `44`.
 - Registro CSV y registro tecnico de la biblioteca, con comandos/respuestas.
 - Demo sin importar la biblioteca OBD ni abrir un puerto.
 - Diagnostico CLI sin GUI y guia AGENTS.md para desarrollo asistido.
@@ -123,8 +124,12 @@ No promete diagnostico ABS/airbag, funciones de marca, UDS completo, CAN FD,
 DoIP, J1939, codificacion ni reprogramacion. Una respuesta sin codigos en una
 categoria no demuestra que todo el coche carezca de averias.
 
-"Solo lectura" significa que no se borra ni modifica la ECU; si se envian
-solicitudes diagnosticas al bus y comandos de configuracion al ELM.
+Ademas de leer, la app puede BORRAR los codigos de fallo (modo 04) solo con
+confirmacion explicita del usuario. Eso elimina DTC almacenados y pendientes, borra
+el freeze frame y reinicia los monitores de disposicion; el `OK` del ELM327 no lo
+confirma, solo una respuesta OBD `44`. Fuera de eso no se modifica la ECU: no hay
+modo 08, codificacion, actuadores, acceso de seguridad ni consola AT/UDS/raw. Si se
+envian solicitudes diagnosticas al bus y comandos de configuracion al ELM.
 No se usa mientras se conduce. Motor encendido: solo con ventilacion adecuada.
 
 ## Desarrollo con un agente

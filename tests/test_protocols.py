@@ -6,7 +6,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from core import RealBackend, Worker
-from protocols import PROTOCOLS, normalize_protocol, pid_evidence, valid_payloads
+from protocols import PROTOCOLS, normalize_protocol, pid_evidence, valid_payloads, clear_dtc_evidence
 from runtime import require_venv
 from test_core import FakeConnection, Response, fake_module
 
@@ -111,14 +111,27 @@ class ProtocolTests(unittest.TestCase):
         b.read_sensors(threading.Event())
         self.assertEqual([name for name, force in zip(c.queries, c.forced) if force], ['PIDS_A'])
 
-    def test_write_commands_blocked(self):
+    def test_only_mode04_write_allowed(self):
         c = FakeConnection()
         b = RealBackend('COM7', obd_module=fake_module(c))
         b.connect()
-        for command in ('CLEAR_DTC', '04', '08', 'ATSH7E0', 'CUSTOM'):
+        self.assertIn('CLEAR_DTC', RealBackend.ALLOWED_QUERIES)
+        for command in ('08', 'ATSH7E0', 'CUSTOM', '04'):
             with self.assertRaises(ValueError):
                 b._query(command)
         self.assertEqual(c.queries, ['PIDS_A'])
+
+    def test_clear_evidence_requires_44(self):
+        self.assertTrue(clear_dtc_evidence(Response(True, [SimpleNamespace(data=b'\x44')])).confirmed)
+        self.assertFalse(clear_dtc_evidence(Response(None, [])).confirmed)
+        verdict = clear_dtc_evidence(Response(True, [SimpleNamespace(data=bytes.fromhex('7F 04 11'))]))
+        self.assertFalse(verdict.confirmed)
+        self.assertIn('7F', verdict.status)
+
+    def test_clear_evidence_drop_decoder_is_null_yet_confirms(self):
+        r = Response(None, [SimpleNamespace(data=b'\x44')])
+        self.assertTrue(r.is_null())  # drop decoder => value None
+        self.assertTrue(clear_dtc_evidence(r).confirmed)
 
     def test_wrong_sensor_response_not_displayed(self):
         c = FakeConnection()

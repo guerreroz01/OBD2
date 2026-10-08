@@ -55,6 +55,8 @@ class FakeConnection:
                 data = bytes((0x41, pid)) + bytes(length - 2)
             elif command in ('GET_DTC', 'GET_CURRENT_DTC'):
                 data = bytes((0x43 if command == 'GET_DTC' else 0x47, 0))
+            elif command == 'CLEAR_DTC':
+                data = b'\x44'
             else:
                 data = b''
             response.messages = [SimpleNamespace(data=data)]
@@ -68,7 +70,7 @@ def fake_module(connection):
     def factory(**kwargs):
         connection.kwargs = kwargs
         return connection
-    names = [s.command for s in SENSORS] + ['GET_DTC', 'GET_CURRENT_DTC', 'PIDS_A', 'ELM_VERSION']
+    names = [s.command for s in SENSORS] + ['GET_DTC', 'GET_CURRENT_DTC', 'PIDS_A', 'ELM_VERSION', 'CLEAR_DTC']
     return SimpleNamespace(
         OBD=factory,
         OBDStatus=SimpleNamespace(CAR_CONNECTED='car', ELM_CONNECTED='elm', OBD_CONNECTED='obd'),
@@ -163,6 +165,52 @@ class BackendTests(unittest.TestCase):
         self.assertEqual(backend.read_sensors(stop), [])
         self.assertEqual(backend.read_dtcs(stop), [])
         self.assertEqual(connection.queries, [])
+
+    def test_clear_requires_mode04_evidence(self):
+        connection = FakeConnection()
+        backend = RealBackend('COM7', obd_module=fake_module(connection))
+        backend.connect()
+        result = backend.clear_dtcs(threading.Event())
+        self.assertTrue(result.confirmed)
+        self.assertIn('CLEAR_DTC', connection.queries)
+
+    def test_clear_without_44_is_not_confirmed(self):
+        connection = FakeConnection()
+        connection.replies['CLEAR_DTC'] = Response(None, [])
+        backend = RealBackend('COM7', obd_module=fake_module(connection))
+        backend.connect()
+        self.assertFalse(backend.clear_dtcs(threading.Event()).confirmed)
+
+    def test_clear_cancelled_does_not_query(self):
+        connection = FakeConnection()
+        backend = RealBackend('COM7', obd_module=fake_module(connection))
+        backend.connect()
+        connection.queries.clear()
+        stop = threading.Event()
+        stop.set()
+        self.assertFalse(backend.clear_dtcs(stop).confirmed)
+        self.assertEqual(connection.queries, [])
+
+    def test_demo_clear_is_marked_and_clears_codes(self):
+        backend = DemoBackend()
+        self.assertIn('SIMULADO', backend.clear_dtcs(threading.Event()).status)
+        self.assertEqual(backend.read_dtcs(threading.Event())[0].codes, ())
+
+    def test_worker_clear_event(self):
+        events = queue.Queue()
+        worker = Worker(DemoBackend, events, interval=0.05)
+        worker.actions.put('clear')
+        worker.start()
+        kinds = []
+        deadline = time.monotonic() + 3
+        while time.monotonic() < deadline:
+            kind, _ = events.get(timeout=1)
+            kinds.append(kind)
+            if 'cleared' in kinds and 'dtcs' in kinds:
+                break
+        worker.stop()
+        worker.join(timeout=2)
+        self.assertIn('cleared', kinds)
 
     def test_demo_values_are_explicitly_marked(self):
         backend = DemoBackend()

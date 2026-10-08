@@ -1,4 +1,7 @@
-"""OBD Desk -- local, read-only desktop GUI for Bluetooth SPP ELM327 adapters."""
+"""OBD Desk -- local desktop GUI for Bluetooth SPP ELM327 adapters.
+
+Exposes OBD reads plus one explicit, confirmed mode 04 clear (no other writes).
+"""
 from __future__ import annotations
 
 import argparse
@@ -36,7 +39,7 @@ class App(tk.Tk):
         self.demo = tk.BooleanVar(value=demo)
         self.skip_voltage = tk.BooleanVar(value=False)
         self.status = tk.StringVar(value='Sin conexi\u00f3n')
-        self.banner = tk.StringVar(value='SOLO LECTURA  |  No borra fallos ni modifica la centralita')
+        self.banner = tk.StringVar(value='LECTURA + BORRADO DE FALLOS (modo 04)  |  No modifica codificacion, actuadores ni seguridad')
         self.dtc_status = tk.StringVar(value='Todav\u00eda no se han consultado los fallos.')
         self._styles()
         self._build()
@@ -140,8 +143,12 @@ class App(tk.Tk):
 
         dtcs.rowconfigure(2, weight=1)
         dtcs.columnconfigure(0, weight=1)
-        self.dtc_button = ttk.Button(dtcs, text='Leer fallos almacenados y pendientes', command=self.request_dtcs, state='disabled')
-        self.dtc_button.grid(row=0, column=0, sticky='w')
+        actions = ttk.Frame(dtcs)
+        actions.grid(row=0, column=0, columnspan=2, sticky='w')
+        self.dtc_button = ttk.Button(actions, text='Leer fallos almacenados y pendientes', command=self.request_dtcs, state='disabled')
+        self.dtc_button.pack(side='left')
+        self.clear_button = ttk.Button(actions, text='Borrar fallos (modo 04)\u2026', command=self.request_clear, state='disabled')
+        self.clear_button.pack(side='left', padx=12)
         ttk.Label(dtcs, textvariable=self.dtc_status, wraplength=860).grid(row=1, column=0, columnspan=2, sticky='w', pady=10)
         self.dtc_table = ttk.Treeview(dtcs, columns=('type', 'code', 'description'), show='headings', height=6)
         for name, title, width in [('type', 'TIPO', 215), ('code', 'C\u00d3DIGO', 90), ('description', 'RESULTADO / DESCRIPCI\u00d3N', 560)]:
@@ -154,7 +161,7 @@ class App(tk.Tk):
         dscroll.grid(row=2, column=1, sticky='ns')
         self.dtc_table.configure(yscrollcommand=dscroll.set)
         hscroll.grid(row=3, column=0, sticky='ew')
-        ttk.Label(dtcs, text='OBD-II gen\u00e9rico de motor / emisiones. No es un escaneo completo de ABS, airbag u otros m\u00f3dulos.\nLas descripciones de la biblioteca pueden estar en ingl\u00e9s. Un c\u00f3digo no identifica por s\u00ed solo la pieza averiada.',
+        ttk.Label(dtcs, text='OBD-II gen\u00e9rico de motor / emisiones. No es un escaneo completo de ABS, airbag u otros m\u00f3dulos.\nLas descripciones de la biblioteca pueden estar en ingl\u00e9s. Un c\u00f3digo no identifica por s\u00ed solo la pieza averiada.\nEl borrado (modo 04) elimina DTC almacenados y pendientes y la foto de datos, y reinicia los monitores de disposici\u00f3n.',
                   wraplength=840, style='Sub.TLabel').grid(row=4, column=0, columnspan=2, sticky='w', pady=(10, 0))
 
         self.log_text = tk.Text(logs, wrap='word', height=12, state='disabled', font=('Consolas', 10), borderwidth=0, padx=12, pady=12)
@@ -203,7 +210,7 @@ class App(tk.Tk):
             return
         check_voltage = not self.skip_voltage.get()
         self.session_demo = demo
-        self.banner.set('DEMO  |  Todos los valores y fallos son SIMULADOS' if demo else 'SOLO LECTURA  |  No borra fallos ni modifica la centralita')
+        self.banner.set('DEMO  |  Todos los valores y fallos son SIMULADOS' if demo else 'LECTURA + BORRADO DE FALLOS (modo 04)  |  No modifica codificacion, actuadores ni seguridad')
         protocol_id = next(p.id for p in PROTOCOLS if p.label == self.protocol_choice.get())
         self.last_report = {}
         self.show_report()
@@ -224,6 +231,7 @@ class App(tk.Tk):
             self.stop_recording()
             self.disconnect_button.configure(state='disabled')
             self.dtc_button.configure(state='disabled')
+            self.clear_button.configure(state='disabled')
             self.csv_button.configure(state='disabled')
             self.status.set('Cerrando al terminar la operaci\u00f3n en curso...')
 
@@ -231,8 +239,31 @@ class App(tk.Tk):
         if self.active and self.worker is not None and not self.dtc_pending:
             self.dtc_pending = True
             self.dtc_button.configure(state='disabled')
+            self.clear_button.configure(state='disabled')
             self.dtc_status.set('Consultando; los datos en directo se pausan durante esta lectura.')
             self.worker.actions.put('dtcs')
+
+    def request_clear(self):
+        if not (self.active and self.worker is not None) or self.dtc_pending:
+            return
+        warning = (
+            'Vas a BORRAR los codigos de fallo de la centralita (modo 04).\n\n'
+            'Se eliminan los DTC almacenados y pendientes, se borra la foto de datos '
+            '(freeze frame) y se REINICIAN los monitores de disposicion: quedaran '
+            '"no listos" hasta completar de nuevo los ciclos de conduccion.\n\n'
+            'Hazlo SOLO tras reparar los fallos. NO lo uses para ocultar averias ni '
+            'antes de una inspeccion de emisiones.\n\n'
+            'Vehiculo estacionado, contacto y alimentacion estables.\n\n'
+            '\u00bfConfirmas el borrado?')
+        if not messagebox.askyesno('Confirmar borrado de fallos (modo 04)', warning,
+                                   icon='warning', default=messagebox.NO):
+            self.log('Borrado de fallos cancelado por el usuario.')
+            return
+        self.dtc_pending = True
+        self.dtc_button.configure(state='disabled')
+        self.clear_button.configure(state='disabled')
+        self.dtc_status.set('Solicitando borrado (modo 04); se confirmara solo si la ECU responde 44...')
+        self.worker.actions.put('clear')
 
     def toggle_csv(self):
         if self.recorder is not None:
@@ -325,6 +356,7 @@ class App(tk.Tk):
             self.status.set(info)
             self.log(info)
             self.dtc_button.configure(state='normal')
+            self.clear_button.configure(state='normal')
             self.csv_button.configure(state='normal')
         elif kind == 'readings' and self.active:
             for reading in payload:
@@ -341,6 +373,7 @@ class App(tk.Tk):
         elif kind == 'dtcs' and self.active:
             self.dtc_pending = False
             self.dtc_button.configure(state='normal')
+            self.clear_button.configure(state='normal')
             self.dtc_table.delete(*self.dtc_table.get_children())
             for result in payload:
                 if result.status not in ('OK', 'SIMULADO'):
@@ -354,6 +387,13 @@ class App(tk.Tk):
             label = 'SIMULACI\u00d3N' if self.session_demo else 'Lectura realizada'
             self.dtc_status.set(f'{label}: {datetime.now():%H:%M:%S}. Consulta el resultado de cada categor\u00eda.')
             self.log('Consulta de fallos finalizada' + (' (SIMULADOS).' if self.session_demo else '.'))
+        elif kind == 'cleared' and self.active:
+            result = payload
+            if result.confirmed:
+                self.dtc_status.set(f'{result.status}: {result.detail}')
+            else:
+                self.dtc_status.set(f'NO confirmado: {result.status}. {result.detail}')
+            self.log(f'Borrado modo 04 -> {result.status}. {result.detail}')
         elif kind == 'error':
             self.log('ERROR: ' + payload)
             self.status.set(payload)
@@ -370,6 +410,7 @@ class App(tk.Tk):
             self.worker = None
             self.set_busy(False)
             self.dtc_button.configure(state='disabled')
+            self.clear_button.configure(state='disabled')
             self.csv_button.configure(state='disabled')
             self.status.set('Desconectado. Consulta Registro si se produjo un error.')
             for sensor in SENSORS:

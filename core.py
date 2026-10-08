@@ -1,4 +1,4 @@
-"""OBD Desk: single-owner, read-only ELM327 backend. Python >= 3.10."""
+"""OBD Desk: single-owner ELM327 backend for reads plus an explicit, confirmed mode 04 clear. Python >= 3.10."""
 from __future__ import annotations
 
 import csv
@@ -13,7 +13,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable
 
-from protocols import PROTOCOL_IDS, normalize_protocol, pid_evidence, valid_payloads
+from protocols import (PROTOCOL_IDS, normalize_protocol, pid_evidence, valid_payloads,
+                       clear_dtc_evidence, ClearVerdict)
 
 
 @dataclass(frozen=True)
@@ -35,7 +36,7 @@ SENSORS = (
     Sensor('ELM_VOLTAGE', 'Tensi\u00f3n le\u00edda por el adaptador', 'V', 2),
 )
 
-# Only these diagnostic reads are exposed. No clear-DTC or programming command.
+# Diagnostic reads exposed to the panel. Mode 04 (clear) is a separate, confirmed action.
 DTC_COMMANDS = (
     ('GET_DTC', 'Almacenados (modo 03)'),
     ('GET_CURRENT_DTC', 'Pendientes (modo 07)'),
@@ -70,7 +71,7 @@ def serial_ports() -> list[str]:
 
 
 class RealBackend:
-    """One worker owns this object and the COM port. ECU queries are read-only."""
+    """One worker owns this object and the COM port. Reads and one explicit mode 04 clear; no other writes."""
     demo = False
     PID_LENGTHS = {
         'RPM': (0x0C, 4), 'SPEED': (0x0D, 3), 'COOLANT_TEMP': (0x05, 3),
@@ -79,7 +80,7 @@ class RealBackend:
     }
     ALLOWED_QUERIES = frozenset({s.command for s in SENSORS} |
                               {name for name, _ in DTC_COMMANDS} |
-                              {'PIDS_A', 'ELM_VERSION'})
+                              {'PIDS_A', 'ELM_VERSION', 'CLEAR_DTC'})
 
     def __init__(self, port: str, baudrate: int | None = None,
                  check_voltage: bool = True, obd_module=None,
@@ -254,6 +255,13 @@ class RealBackend:
                 results.append(DTCResult(category, 'Respuesta no interpretable', ()))
         return results
 
+    def clear_dtcs(self, stop: threading.Event) -> ClearVerdict:
+        """Mode 04. python-OBD always reports CLEAR_DTC as supported, so a fresh
+        OBD 44 payload is the only accepted proof; the ELM OK is not."""
+        if stop.is_set():
+            return ClearVerdict(False, 'Cancelado', 'No se envio la orden de borrado.')
+        return clear_dtc_evidence(self._query('CLEAR_DTC'))
+
     def close(self) -> None:
         if self.connection is not None:
             connection, self.connection = self.connection, None
@@ -267,6 +275,7 @@ class DemoBackend:
     def __init__(self):
         self.start = time.monotonic()
         self.supported = {s.command for s in SENSORS}
+        self.stored_cleared = False
         self.report = {'origen': 'SIMULADO', 'serie': 'NO ABIERTA (demo)',
                        'adaptador': 'NO UTILIZADO (demo)', 'ecu': 'SIMULADA, no verificada'}
 
@@ -284,9 +293,16 @@ class DemoBackend:
     def read_dtcs(self, stop: threading.Event) -> list[DTCResult]:
         if stop.is_set():
             return []
-        return [DTCResult('Almacenados (modo 03)', 'SIMULADO',
-                          (('P0300', 'EJEMPLO SIMULADO: fallos de encendido aleatorios / m\u00faltiples'),)),
+        stored = () if self.stored_cleared else (
+            ('P0300', 'EJEMPLO SIMULADO: fallos de encendido aleatorios / m\u00faltiples'),)
+        return [DTCResult('Almacenados (modo 03)', 'SIMULADO', stored),
                 DTCResult('Pendientes (modo 07)', 'SIMULADO', ())]
+
+    def clear_dtcs(self, stop: threading.Event) -> ClearVerdict:
+        if stop.is_set():
+            return ClearVerdict(False, 'Cancelado', 'SIMULADO: no se envio ninguna orden.')
+        self.stored_cleared = True
+        return ClearVerdict(True, 'SIMULADO: 44', 'SIMULADO: la ECU ficticia acepto el borrado (modo 04).')
 
     def close(self) -> None:
         pass
@@ -340,6 +356,11 @@ class Worker(threading.Thread):
                     result = backend.read_dtcs(self.stop_event)
                     if not self.stop_event.is_set():
                         self.events.put(('dtcs', result))
+                if action == 'clear':
+                    result = backend.clear_dtcs(self.stop_event)
+                    if not self.stop_event.is_set():
+                        self.events.put(('dtcs', backend.read_dtcs(self.stop_event)))
+                        self.events.put(('cleared', result))
                 if self.stop_event.is_set():
                     break
                 if time.monotonic() >= next_poll:
